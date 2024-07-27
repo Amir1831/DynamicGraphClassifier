@@ -58,17 +58,32 @@ class TemporalAttention(nn.Module):
 
 class DynamicMatrix(nn.Module):
     def __init__(self):
+        """
+        ## Dynamic adjacency matrix 
+        To capture spatial relationships between brain regions, while considering the independently learned embeddings
+        from the feature extractor, we employ a self-attention mechanism. Specifically, at each snapshot we utilize the em-
+        beddings to learn the pair-wise dependency structure between brain regions, using a simplified version
+        of scaled dot-product self-attention.
+        ## Edge sparsity 
+        By definition, the adjacency matrix represents a fully-connected graph at every snapshot. However, fully-connected graphs are challenging to
+        interpret and computationally expensive for learning downstream tasks with GNNs. Moreover, they are susceptible to noise. To address these issues, we propose a soft threshold
+        operator to enforce edge sparsity.This operator is defined following fθP (ai,j,t) = ReLU(ai,j,t − Sigmoid(θP)).
+        """
         super().__init__()
         # initial Query and Key Parameters
         self.W_Q = nn.Parameter(torch.rand(Config.K_E , Config.K_S))
         self.W_K = nn.Parameter(torch.rand(Config.K_E , Config.K_S))
+        # Initisl Theta_P for edge sparsity
+        self.theta = nn.Parameter(torch.ones(Config.BATCH_SIZE , Config.T , Config.V , Config.V) * -10)  # intial theta with -10
+
+        self.ReLU = nn.ReLU()
         self.Sigmoid = nn.Sigmoid()
     def forward(self , x):
         # INPUT : (B , T , K_E , V)
         x = x.view(x.size(0), x.size(1),x.size(3),x.size(2)) # Reshape to : (B , T , V , K_E)
         Q_T = x @ self.W_Q  # (B , T , V , K_S)
         K_T = x @ self.W_K  # (B , T , V , K_S)
-        return self.Sigmoid((Q_T @ K_T.transpose(2,3)) / torch.sqrt(torch.tensor(Config.K_S)))
+        return self.ReLU(self.Sigmoid((Q_T @ K_T.transpose(2,3)) / torch.sqrt(torch.tensor(Config.K_S))) - self.Sigmoid(self.theta))
 
 class SpatialAttention(nn.Module):
     def __init__(self, num_heads, input_dim, hidden_dim):
