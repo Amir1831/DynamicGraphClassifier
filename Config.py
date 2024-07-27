@@ -12,3 +12,4 @@ class Config():
     T = math.floor(( T_prim - 2*( P - 1 ) - 1) / ( S + 1 ) )
     # Define K_E
     K_E = P * 2
+    K_S = K_E * 2

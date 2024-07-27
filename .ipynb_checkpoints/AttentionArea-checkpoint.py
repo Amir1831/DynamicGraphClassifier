@@ -30,9 +30,9 @@ class AttentionBlock(nn.Module):
 
     def forward(self, x):
         inp_x = self.layer_norm_1(x)
-        x = x + self.attn(inp_x, inp_x, inp_x)[0]
-        x = x + self.linear(self.layer_norm_2(x))
-        return x
+        x , weights = self.attn(inp_x, inp_x, inp_x)
+        x = x + self.linear(x + self.layer_norm_2(x))
+        return x , weights
 
 
 
@@ -52,9 +52,23 @@ class TemporalAttention(nn.Module):
         x = x.view(x.size(0) , x.size(2) , x.size(1) , x.size(3))  # Change back dimention to : (B , T , K_E , V)
         ## Temporal Part 
         x = x.view(x.size(1), x.size(0), -1)  # merge spatial dims & Change dimention because "Batch_First" is Flase
-        x = self.attention(x)
+        x  , weights= self.attention(x)
         x = x.view(x.size(1), x.size(0), x.size(2) // Config.V, x.size(2) // Config.K_E)  # restore spatial dims
-        return x
+        return x , weights
+
+class DynamicMatrix(nn.Module):
+    def __init__(self):
+        super().__init__()
+        # initial Query and Key Parameters
+        self.W_Q = nn.Parameter(torch.rand(Config.K_E , Config.K_S))
+        self.W_K = nn.Parameter(torch.rand(Config.K_E , Config.K_S))
+        self.Sigmoid = nn.Sigmoid()
+    def forward(self , x):
+        # INPUT : (B , T , K_E , V)
+        x = x.view(x.size(0), x.size(1),x.size(3),x.size(2)) # Reshape to : (B , T , V , K_E)
+        Q_T = x @ self.W_Q  # (B , T , V , K_S)
+        K_T = x @ self.W_K  # (B , T , V , K_S)
+        return self.Sigmoid((Q_T @ K_T.transpose(2,3)) / torch.sqrt(torch.tensor(Config.K_S)))
 
 class SpatialAttention(nn.Module):
     def __init__(self, num_heads, input_dim, hidden_dim):
