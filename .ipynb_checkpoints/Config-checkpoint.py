@@ -7,9 +7,10 @@ class Config():
     T_prim , V = np.loadtxt("../Data/AAL/100408_timeseries.txt").shape
     # Define P & S Hyper-prameters that used to define numebrs of windows (1 <=P , S <= T_prim)
     P = 20
-    S = 100
+    S = 10
     # Define T (number of windows)
     T = math.floor(( T_prim - 2*( P - 1 ) - 1) / ( S + 1 ) )
     # Define K_E
     K_E = P * 2
     K_S = K_E * 2
+    K_F = K_E 

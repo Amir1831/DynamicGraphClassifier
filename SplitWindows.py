@@ -21,4 +21,4 @@ def SplitWindows(Series):
                 print("Not Fit")
         BATCH.append(l)
     # print(np.array(BATCH).shape)
-    return torch.Tensor(np.array(BATCH))
+    return torch.Tensor(np.array(BATCH)).transpose(2,3)

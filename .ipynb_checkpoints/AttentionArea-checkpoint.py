@@ -45,15 +45,15 @@ class TemporalAttention(nn.Module):
         self.Conv2 = nn.Conv2d(Config.K_E , Config.K_E , kernel_size=(3,3),padding=1)
 
     def forward(self, x):
-        # Input : (B , T , P , V)
-        x = x.view(x.size(0) , x.size(2) , x.size(1) , x.size(3))  # Reshape to : (B , P , T , V)
+        # Input : (B , T , V , P)
+        x = x.transpose(1,3)  # Reshape to : (B , P , V , T)
         ## Apply Conv2D 
-        x = self.Conv2(self.Conv1(x)) # Output of Conv : (B , K_E , T , V)
-        x = x.view(x.size(0) , x.size(2) , x.size(1) , x.size(3))  # Change back dimention to : (B , T , K_E , V)
+        x = self.Conv2(self.Conv1(x)) # Output of Conv : (B , K_E , V , T)
+        x = x.transpose(1,3)  # Change back dimention to : (B , T , V , K_E)
         ## Temporal Part 
-        x = x.view(x.size(1), x.size(0), -1)  # merge spatial dims & Change dimention because "Batch_First" is Flase
+        x = x.reshape(x.size(1), x.size(0), -1)  # merge spatial dims & Change dimention because "Batch_First" is Flase
         x  , weights= self.attention(x)
-        x = x.view(x.size(1), x.size(0), x.size(2) // Config.V, x.size(2) // Config.K_E)  # restore spatial dims
+        x = x.reshape(x.size(1), x.size(0), x.size(2) // Config.K_E ,  x.size(2) // Config.V)  # restore spatial dims
         return x , weights
 
 class DynamicMatrix(nn.Module):
@@ -77,24 +77,28 @@ class DynamicMatrix(nn.Module):
         self.theta = nn.Parameter(torch.ones(Config.BATCH_SIZE , Config.T , Config.V , Config.V) * -10)  # intial theta with -10
 
         self.ReLU = nn.ReLU()
-        self.Sigmoid = nn.Sigmoid()
+        self.Softmax = nn.Softmax(dim=1)
     def forward(self , x):
-        # INPUT : (B , T , K_E , V)
-        x = x.view(x.size(0), x.size(1),x.size(3),x.size(2)) # Reshape to : (B , T , V , K_E)
+        # INPUT : (B , T , V, K_E)
         Q_T = x @ self.W_Q  # (B , T , V , K_S)
         K_T = x @ self.W_K  # (B , T , V , K_S)
-        return self.ReLU(self.Sigmoid((Q_T @ K_T.transpose(2,3)) / torch.sqrt(torch.tensor(Config.K_S))) - self.Sigmoid(self.theta))
+        return self.ReLU(self.Softmax((Q_T @ K_T.transpose(2,3)) / torch.sqrt(torch.tensor(Config.K_S))) - self.Softmax(self.theta))
 
 class SpatialAttention(nn.Module):
-    def __init__(self, num_heads, input_dim, hidden_dim):
-        super(SpatialAttention, self).__init__()
-        self.attention = AttentionBlock(num_heads = num_heads, embed_dim = input_dim, hidden_dim = hidden_dim)
-
-    def forward(self, x):
-        x = x.view(x.size(0), x.size(2), x.size(3), x.size(1))  # merge temporal dim
-        x = self.attention(x)
-        x = x.view(x.size(0), x.size(2), x.size(3), x.size(1))  # restore temporal dim
-        return x
+    def __init__(self):
+    
+        super().__init__()
+        # initial Query and Key Parameters
+        self.W_Q = nn.Parameter(torch.rand(Config.K_E , Config.K_S))
+        self.W_K = nn.Parameter(torch.rand(Config.K_E , Config.K_S))
+        self.W_V = nn.Parameter(torch.rand(Config.K_E , Config.K_E))
+        self.Softmax = nn.Softmax(dim=1)
+    def forward(self , x):
+        # INPUT : (B , T , V, K_E)
+        Q_T = x @ self.W_Q  # (B , T , V , K_S)
+        K_T = x @ self.W_K  # (B , T , V , K_S)
+        V_T = x @ self.W_V  # (B , T , V , K_S)
+        return self.Softmax((Q_T @ K_T.transpose(2,3)) / torch.sqrt(torch.tensor(Config.K_S))) @ V_T
 
 class CombinedAttention(nn.Module):
     def __init__(self, num_heads, input_dim, hidden_dim):
