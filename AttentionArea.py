@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from Config import Config
+from Config import CONFIG
+Config = CONFIG()
 class AttentionBlock(nn.Module):
 
     def __init__(self, embed_dim, hidden_dim, num_heads, dropout=0.0):
@@ -30,9 +31,10 @@ class AttentionBlock(nn.Module):
 
     def forward(self, x):
         inp_x = self.layer_norm_1(x)
-        x , weights = self.attn(inp_x, inp_x, inp_x)
-        x = x + self.linear(x + self.layer_norm_2(x))
-        return x , weights
+        x = x + self.attn(inp_x, inp_x, inp_x)[0]
+        x = x + self.linear(self.layer_norm_2(x))
+        return x
+
 
 
 
@@ -52,9 +54,9 @@ class TemporalAttention(nn.Module):
         x = x.transpose(1,3)  # Change back dimention to : (B , T , V , K_E)
         ## Temporal Part 
         x = x.reshape(x.size(1), x.size(0), -1)  # merge spatial dims & Change dimention because "Batch_First" is Flase
-        x  , weights= self.attention(x)
+        x = self.attention(x)
         x = x.reshape(x.size(1), x.size(0), x.size(2) // Config.K_E ,  x.size(2) // Config.V)  # restore spatial dims
-        return x , weights
+        return x
 
 class DynamicMatrix(nn.Module):
     def __init__(self):
@@ -74,7 +76,7 @@ class DynamicMatrix(nn.Module):
         self.W_Q = nn.Parameter(torch.rand(Config.K_E , Config.K_S))
         self.W_K = nn.Parameter(torch.rand(Config.K_E , Config.K_S))
         # Initisl Theta_P for edge sparsity
-        self.theta = nn.Parameter(torch.ones(Config.BATCH_SIZE , Config.T , Config.V , Config.V) * -10)  # intial theta with -10
+        self.theta = nn.Parameter(torch.ones(Config.B , Config.T , Config.V , Config.V) * -10)  # intial theta with -10
 
         self.ReLU = nn.ReLU()
         self.Softmax = nn.Softmax(dim=1)
@@ -99,17 +101,3 @@ class SpatialAttention(nn.Module):
         K_T = x @ self.W_K  # (B , T , V , K_S)
         V_T = x @ self.W_V  # (B , T , V , K_S)
         return self.Softmax((Q_T @ K_T.transpose(2,3)) / torch.sqrt(torch.tensor(Config.K_S))) @ V_T
-
-class CombinedAttention(nn.Module):
-    def __init__(self, num_heads, input_dim, hidden_dim):
-        super(CombinedAttention, self).__init__()
-        self.temporal_attention = TemporalAttention(num_heads, input_dim, hidden_dim)
-        self.spatial_attention = SpatialAttention(num_heads, input_dim, hidden_dim)
-        self.linear = nn.Linear(hidden_dim * 2, hidden_dim)
-
-    def forward(self, x):
-        temporal_output = self.temporal_attention(x)
-        spatial_output = self.spatial_attention(x)
-        output = torch.cat((temporal_output, spatial_output), dim=-1)
-        output = self.linear(output)
-        return output
