@@ -12,13 +12,13 @@ def SplitWindows(Series):
     B , T_prim , V = Series.shape
     # print(Series.shape)
     BATCH = []
-    for B in range(Config.B):
+    for b in range(B):
         l = []
         for t in range(Config.T):
             try:
-                l.append(Series[B][t*Config.S:t*Config.S + Config.P,:])
+                l.append(Series[b][t*Config.S:t*Config.S + Config.P,:])
             except:
                 print("Not Fit")
-        BATCH.append(l)
+        BATCH.append(torch.stack(l))
     # print(np.array(BATCH).shape)
-    return torch.Tensor(np.array(BATCH)).transpose(2,3)
+    return torch.stack(BATCH).transpose(2,3)

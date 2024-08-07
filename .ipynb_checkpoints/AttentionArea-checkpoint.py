@@ -76,15 +76,17 @@ class DynamicMatrix(nn.Module):
         self.W_Q = nn.Parameter(torch.rand(Config.K_E , Config.K_S))
         self.W_K = nn.Parameter(torch.rand(Config.K_E , Config.K_S))
         # Initisl Theta_P for edge sparsity
-        self.theta = nn.Parameter(torch.ones(Config.B , Config.T , Config.V , Config.V) * -10)  # intial theta with -10
+        self.theta = nn.Parameter(torch.ones(1 , Config.T , Config.V , Config.V) * -10)  # intial theta with -10
 
         self.ReLU = nn.ReLU()
         self.Softmax = nn.Softmax(dim=1)
     def forward(self , x):
         # INPUT : (B , T , V, K_E)
+        B , _, _ , _ = x.shape
+        theta = self.theta.repeat(B, 1 ,1, 1)
         Q_T = x @ self.W_Q  # (B , T , V , K_S)
         K_T = x @ self.W_K  # (B , T , V , K_S)
-        return self.ReLU(self.Softmax((Q_T @ K_T.transpose(2,3)) / torch.sqrt(torch.tensor(Config.K_S))) - self.Softmax(self.theta))
+        return self.ReLU(self.Softmax((Q_T @ K_T.transpose(2,3)) / torch.sqrt(torch.tensor(Config.K_S))) - self.Softmax(theta))
 
 class SpatialAttention(nn.Module):
     def __init__(self):
