@@ -101,5 +101,5 @@ class SpatialAttention(nn.Module):
         # INPUT : (B , T , V, K_E)
         Q_T = x @ self.W_Q  # (B , T , V , K_S)
         K_T = x @ self.W_K  # (B , T , V , K_S)
-        V_T = x @ self.W_V  # (B , T , V , K_S)
+        V_T = x @ self.W_V  # (B , T , V , K_E)
         return self.Softmax((Q_T @ K_T.transpose(2,3)) / torch.sqrt(torch.tensor(Config.K_S))) @ V_T
