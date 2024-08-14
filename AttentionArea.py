@@ -43,19 +43,17 @@ class TemporalAttention(nn.Module):
     def __init__(self, num_heads, input_dim, hidden_dim):
         super(TemporalAttention, self).__init__()
         self.attention = AttentionBlock(num_heads = num_heads, embed_dim = input_dim, hidden_dim = hidden_dim)
-        self.Conv1 = nn.Conv2d(Config.P , Config.K_E , kernel_size=(3,3),padding=1)
-        self.Conv2 = nn.Conv2d(Config.K_E , Config.K_E , kernel_size=(3,3),padding=1)
+        self.Conv1 = nn.Conv2d(Config.T , Config.K_E , kernel_size=Config.KERNEL_1,stride=Config.STRIDE_1)
+        self.Conv2 = nn.Conv2d(Config.K_E , Config.K_E , kernel_size=Config.KERNEL_2,stride=Config.STRIDE_2)
 
     def forward(self, x):
         # Input : (B , T , V , P)
-        x = x.transpose(1,3)  # Reshape to : (B , P , V , T)
         ## Apply Conv2D 
-        x = self.Conv2(self.Conv1(x)) # Output of Conv : (B , K_E , V , T)
-        x = x.transpose(1,3)  # Change back dimention to : (B , T , V , K_E)
+        x = self.Conv2(self.Conv1(x)) # Output of Conv : (B , K_E , V , P_2)
         ## Temporal Part 
-        x = x.reshape(x.size(1), x.size(0), -1)  # merge spatial dims & Change dimention because "Batch_First" is Flase
+        x = x.reshape(x.size(1), x.size(0), -1)  # OutPut : (K_E , B , V * P_2) merge spatial dims & Change dimention because "Batch_First" is Flase
         x = self.attention(x)
-        x = x.reshape(x.size(1), x.size(0), x.size(2) // Config.K_E ,  x.size(2) // Config.V)  # restore spatial dims
+        x = x.reshape(x.size(1), x.size(0), x.size(2) // Config.P_2 ,  x.size(2) // Config.V)  # OutPut: (B , K_E , V , P_2) restore spatial dims  
         return x
 
 class DynamicMatrix(nn.Module):
@@ -73,33 +71,33 @@ class DynamicMatrix(nn.Module):
         """
         super().__init__()
         # initial Query and Key Parameters
-        self.W_Q = nn.Parameter(torch.rand(Config.K_E , Config.K_S))
-        self.W_K = nn.Parameter(torch.rand(Config.K_E , Config.K_S))
+        self.W_Q = nn.Parameter(torch.rand(Config.P_2 , Config.K_S))
+        self.W_K = nn.Parameter(torch.rand(Config.P_2 , Config.K_S))
         # Initisl Theta_P for edge sparsity
-        self.theta = nn.Parameter(torch.ones(1 , Config.T , Config.V , Config.V) * -10)  # intial theta with -10
+        self.theta = nn.Parameter(torch.ones(1 , Config.K_E , Config.V , Config.V) * -10)  # intial theta with -10
 
         self.ReLU = nn.ReLU()
         self.Softmax = nn.Softmax(dim=1)
     def forward(self , x):
-        # INPUT : (B , T , V, K_E)
+        # INPUT : (B , K_E , V, P_2)
         B , _, _ , _ = x.shape
         theta = self.theta.repeat(B, 1 ,1, 1)
-        Q_T = x @ self.W_Q  # (B , T , V , K_S)
-        K_T = x @ self.W_K  # (B , T , V , K_S)
-        return self.ReLU(self.Softmax((Q_T @ K_T.transpose(2,3)) / torch.sqrt(torch.tensor(Config.K_S))) - self.Softmax(theta))
+        Q_T = x @ self.W_Q  # OUTPUT : (B , K_E , V , K_S)
+        K_T = x @ self.W_K  # OUTPUT : (B , K_E , V , K_S)
+        return self.ReLU(self.Softmax(((Q_T @ K_T.transpose(2,3)) / torch.sqrt(torch.tensor(Config.K_S))) + torch.diag(torch.ones(Config.V)).to(x.device)) - self.Softmax(theta))
 
 class SpatialAttention(nn.Module):
     def __init__(self):
     
         super().__init__()
         # initial Query and Key Parameters
-        self.W_Q = nn.Parameter(torch.rand(Config.K_E , Config.K_S))
-        self.W_K = nn.Parameter(torch.rand(Config.K_E , Config.K_S))
-        self.W_V = nn.Parameter(torch.rand(Config.K_E , Config.K_E))
+        self.W_Q = nn.Parameter(torch.rand(Config.P_2 , Config.K_S))
+        self.W_K = nn.Parameter(torch.rand(Config.P_2 , Config.K_S))
+        self.W_V = nn.Parameter(torch.rand(Config.P_2 , Config.P_2))
         self.Softmax = nn.Softmax(dim=1)
     def forward(self , x):
-        # INPUT : (B , T , V, K_E)
-        Q_T = x @ self.W_Q  # (B , T , V , K_S)
-        K_T = x @ self.W_K  # (B , T , V , K_S)
-        V_T = x @ self.W_V  # (B , T , V , K_E)
+        # INPUT : (B , K_E , V, P_2)
+        Q_T = x @ self.W_Q  # OUTPUT : (B , K_E , V , K_S)
+        K_T = x @ self.W_K  # OUTPUT : (B , K_E , V , K_S)
+        V_T = x @ self.W_V  # OUTPUT : (B , K_E , V , P_2)
         return self.Softmax((Q_T @ K_T.transpose(2,3)) / torch.sqrt(torch.tensor(Config.K_S))) @ V_T

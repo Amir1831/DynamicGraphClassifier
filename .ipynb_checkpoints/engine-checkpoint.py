@@ -7,7 +7,8 @@ from tqdm.auto import tqdm
 from typing import Dict, List, Tuple
 # # Save the model
 import utils
-
+import matplotlib.pyplot as plt
+import seaborn as sns
 def train_step(model: torch.nn.Module, 
                dataloader: torch.utils.data.DataLoader, 
                loss_fn: torch.nn.Module, 
@@ -63,6 +64,9 @@ def train_step(model: torch.nn.Module,
         y_pred_class = torch.argmax(torch.softmax(y_pred, dim=1), dim=1)
         train_acc += (y_pred_class == y).sum().item()/len(y_pred)
     print(f"CLFToken Gradeient {model.CLFToken}")
+    sns.heatmap(model.MeanDynamicMatrix.detach().cpu().numpy()[0].mean(axis=0), cmap='hot', linewidth=0.5)
+    plt.axis(False)
+    plt.show();
     # Adjust metrics to get average loss and accuracy per batch 
     train_loss = train_loss / len(dataloader)
     train_acc = train_acc / len(dataloader)
