@@ -77,14 +77,15 @@ class DynamicMatrix(nn.Module):
         self.theta = nn.Parameter(torch.ones(1 , Config.K_E , Config.V , Config.V) * -10)  # intial theta with -10
 
         self.ReLU = nn.ReLU()
-        self.Softmax = nn.Softmax(dim=1)
+        self.Sigmoid = nn.Sigmoid()
+        # self.ones = torch.diag(torch.ones(Config.V))
     def forward(self , x):
         # INPUT : (B , K_E , V, P_2)
         B , _, _ , _ = x.shape
         theta = self.theta.repeat(B, 1 ,1, 1)
         Q_T = x @ self.W_Q  # OUTPUT : (B , K_E , V , K_S)
         K_T = x @ self.W_K  # OUTPUT : (B , K_E , V , K_S)
-        return self.ReLU(self.Softmax(((Q_T @ K_T.transpose(2,3)) / torch.sqrt(torch.tensor(Config.K_S))) + torch.diag(torch.ones(Config.V)).to(x.device)) - self.Softmax(theta))
+        return self.ReLU(self.Sigmoid(((Q_T @ K_T.transpose(2,3)) / torch.sqrt(torch.tensor(Config.K_S)))) - self.Sigmoid(theta))
 
 class SpatialAttention(nn.Module):
     def __init__(self):
@@ -94,10 +95,10 @@ class SpatialAttention(nn.Module):
         self.W_Q = nn.Parameter(torch.rand(Config.P_2 , Config.K_S))
         self.W_K = nn.Parameter(torch.rand(Config.P_2 , Config.K_S))
         self.W_V = nn.Parameter(torch.rand(Config.P_2 , Config.P_2))
-        self.Softmax = nn.Softmax(dim=1)
+        self.Sigmoid = nn.Sigmoid()
     def forward(self , x):
         # INPUT : (B , K_E , V, P_2)
         Q_T = x @ self.W_Q  # OUTPUT : (B , K_E , V , K_S)
         K_T = x @ self.W_K  # OUTPUT : (B , K_E , V , K_S)
         V_T = x @ self.W_V  # OUTPUT : (B , K_E , V , P_2)
-        return self.Softmax((Q_T @ K_T.transpose(2,3)) / torch.sqrt(torch.tensor(Config.K_S))) @ V_T
+        return self.Sigmoid((Q_T @ K_T.transpose(2,3)) / torch.sqrt(torch.tensor(Config.K_S))) @ V_T

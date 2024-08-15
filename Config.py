@@ -16,7 +16,7 @@ class CONFIG():
         # Define T (number of windows)
         self.T = math.floor((self.T_prim - self.P)/  self.S  ) + 1 
         ## Define Convulotion HyperParameters
-        self.K_E = self.T * 2  # Define K_E (Use in Convolution Part of the Temporal attention)
+        self.K_E = self.T  # Define K_E (Use in Convolution Part of the Temporal attention)
         self.KERNEL_1 = (1,self.P // 10)   # Kernel size for the first Conv 
         self.STRIDE_1 = (1,2)  # Stride for both Conv1 & Conv2
         self.P_1 = math.floor((self.P - self.KERNEL_1[1])/  self.STRIDE_1[1]  ) + 1  # Output of the first Conv
@@ -32,7 +32,7 @@ class CONFIG():
         self.HIDDEN_DIM = 128 # Embed dim for the attention 
         if self.CLFTOKEN : 
             self.V = self.V + 1
-        self.DROP_OUT = 0.0
+        self.DROP_OUT = 0.1
         self.NUM_LAYER = 10
         self.NUM_CLASS = 2
 
