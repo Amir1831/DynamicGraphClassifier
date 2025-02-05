@@ -1,7 +1,7 @@
 # fMRI Data Classification with Attention Mechanisms and Graph Neural Networks (GNN)
 
 ## Overview
-![Alt text](./images/image.png)
+![Alt text](./images/main.png)
 This repository provides a deep learning framework for classifying fMRI data using a combination of temporal and spatial attention mechanisms, along with Graph Neural Networks (GNNs). The model analyzes fMRI data by splitting the signals into temporal windows, applying attention mechanisms, constructing dynamic graphs, and processing these graphs using Graph Convolutional Networks (GCNs) and transformers.
 
 The key goal of this project is to improve the classification accuracy of brain states, particularly in tasks such as Autism Spectrum Disorder (ASD) classification.
